@@ -16,6 +16,15 @@ resource "helm_release" "cert_manager" {
   create_namespace  = true
   recreate_pods     = true
   cleanup_on_fail   = true
+  atomic            = true
+
+  provisioner "local-exec" {
+    when    = destroy
+    command = <<-EOT
+      kubectl delete ns cert-manager
+    EOT
+  }
+
 }
 
 
@@ -52,22 +61,74 @@ resource "helm_release" "lb_controller" {
   wait_for_jobs     = true
   recreate_pods     = true
   cleanup_on_fail   = true
+  atomic            = true
 
   depends_on = [helm_release.cert_manager]
 }
 
 
 resource "helm_release" "linkerd" {
-  chart       = local.ld
-  version     = "1.9.1"
-  repository  = "https://charts.jetstack.io"
+  chart       = "linkerd2"
+  version     = "2.11.4"
+  repository  = local.ld
   namespace   = local.ld
   name        = local.ld
 
   set         {
-    name      = "installCRDs"
+    name      = "installNamespace"
+    value     = "false"
+  }
+
+  set         {
+    name      = "policyValidator.externalSecret"
     value     = "true"
   }
+
+  set         {
+    name      = "policyValidator.caBundle"
+    value     = "ca.crt"
+  }
+
+  set         {
+    name      = "proxyInjector.externalSecret"
+    value     = "true"
+  }
+
+  set         {
+    name      = "proxyInjector.caBundle"
+    value     = "ca.crt"
+  }
+
+  set         {
+    name      = "profileValidator.externalSecret"
+    value     = "true"
+  }
+
+  set         {
+    name      = "profileValidator.caBundle"
+    value     = "ca.crt"
+  }
+
+  set         {
+    name      = "tap.externalSecret"
+    value     = "true"
+  }
+
+  set         {
+    name      = "tap.caBundle"
+    value     = "ca.crt"
+  }
+
+  set         {
+    name      = "tapInjector.externalSecret"
+    value     = "true"
+  }
+
+  set         {
+    name      = "tapInjector.caBundle"
+    value     = "ca.crt"
+  }
+
 
   timeout           = 900 # 15 minutes.
   wait              = true
@@ -75,6 +136,72 @@ resource "helm_release" "linkerd" {
   create_namespace  = true
   recreate_pods     = true
   cleanup_on_fail   = true
+  atomic            = true
 
-  depends_on = [helm_release.cert_manager]
+  depends_on = [
+    kubernetes_manifest.cm_cert,
+    kubernetes_manifest.linkerd_policy_validator,
+    kubernetes_manifest.linkerd_proxy_injector,
+    kubernetes_manifest.linkerd_sp_validator,
+  ]
+}
+
+
+resource "helm_release" "linkerd_viz" {
+  chart       = local.lv
+  version     = "2.11.4"
+  repository  = "linkerd"
+  namespace   = local.lv
+  name        = local.lv
+
+  set         {
+    name      = "identityTrustAnchorsPEM"
+    value     = "ca.crt"
+  }
+
+  set         {
+    name      = "identity.issuer.scheme"
+    value     = "kubernetes.io/tls"
+  }
+
+  set         {
+    name      = "installNamespace"
+    value     = "false"
+  }
+
+  set         {
+    name      = "tap.externalSecret"
+    value     = "true"
+  }
+
+  set         {
+    name      = "tap.caBundle"
+    value     = "ca.crt"
+  }
+
+  set         {
+    name      = "tapInjector.externalSecret"
+    value     = "true"
+  }
+
+  set         {
+    name      = "tapInjector.caBundle"
+    value     = "ca.crt"
+  }
+
+
+  timeout           = 900 # 15 minutes.
+  wait              = true
+  wait_for_jobs     = true
+  create_namespace  = true
+  recreate_pods     = true
+  cleanup_on_fail   = true
+  atomic            = true
+
+  depends_on = [
+    kubernetes_manifest.cm_cert,
+    kubernetes_manifest.linkerd_viz_tap,
+    kubernetes_manifest.linkerd_viz_tap_injector,
+    helm_release.linkerd,
+  ]
 }

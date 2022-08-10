@@ -22,3 +22,10 @@ Second, this repository aims to offer useful extenions:
 * centralized authorization for microservices via _OPA_
 
 Desired traits will be verified by _Terratest_.
+
+## Setup
+Ensure _step_ is installed on the local host.
+
+## Create resources for Kubernetes.
+1. `AWS_PROFILE=arch terraform apply -auto-approve -target=module.name.helm_release.cert_manager`
+2. `AWS_PROFILE=arch terraform apply -auto-approve`
